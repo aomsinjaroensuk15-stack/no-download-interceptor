@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No-Download Interceptor — test bench</title>
+<style>
+  :root {
+    --bg: #030712;
+    --panel: rgba(8, 18, 32, 0.72);
+    --line: rgba(6, 182, 212, 0.22);
+    --cyan: #06b6d4;
+    --cyan-soft: #67e8f9;
+    --magenta: #ec4899;
+    --text: #cdeffb;
+    --muted: #5b8399;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 32px clamp(16px, 4vw, 48px) 64px;
+    background:
+      radial-gradient(900px 500px at 10% -10%, rgba(6, 182, 212, 0.16), transparent 60%),
+      radial-gradient(800px 500px at 100% 0%, rgba(236, 72, 153, 0.14), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  h1 {
+    margin: 0 0 6px;
+    font-size: 20px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #eafcff;
+    text-shadow: 0 0 18px rgba(6, 182, 212, 0.55);
+  }
+  h1 span { color: var(--magenta); text-shadow: 0 0 18px rgba(236, 72, 153, 0.65); }
+  .sub { margin: 0 0 22px; color: var(--muted); font-size: 12px; max-width: 80ch; }
+  .sub code { color: var(--cyan-soft); }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 22px; }
+  button, .fake-link {
+    font: inherit;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #a5f3fc;
+    background: rgba(6, 182, 212, 0.08);
+    border: 1px solid rgba(6, 182, 212, 0.35);
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 140ms, border-color 140ms, box-shadow 140ms;
+  }
+  button:hover, .fake-link:hover {
+    background: rgba(6, 182, 212, 0.18);
+    border-color: rgba(34, 211, 238, 0.8);
+    box-shadow: 0 0 16px rgba(6, 182, 212, 0.35);
+  }
+  button.primary { color: #04121a; background: #67e8f9; border-color: #67e8f9; font-weight: 700; }
+  button.primary:hover { background: #a5f3fc; }
+  button.magenta { color: #fbcfe8; background: rgba(236, 72, 153, 0.12); border-color: rgba(236, 72, 153, 0.45); }
+  button.magenta:hover { background: rgba(236, 72, 153, 0.22); border-color: rgba(244, 114, 182, 0.85); box-shadow: 0 0 16px rgba(236, 72, 153, 0.35); }
+
+  .layout { display: grid; gap: 22px; grid-template-columns: minmax(280px, 460px) minmax(320px, 1fr); align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    padding: 16px 16px 18px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 24px 60px -30px rgba(0, 0, 0, 0.9);
+  }
+  .card h2 {
+    margin: 0 0 12px;
+    font-size: 9px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--cyan-soft);
+    font-weight: 700;
+  }
+  .card h2::before {
+    content: "";
+    display: inline-block;
+    width: 12px; height: 1px;
+    margin-right: 8px;
+    vertical-align: middle;
+    background: var(--magenta);
+    box-shadow: 0 0 8px var(--magenta);
+  }
+
+  .targets { display: flex; flex-direction: column; gap: 8px; }
+  .target {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px;
+    border: 1px solid rgba(6, 182, 212, 0.12);
+    border-left: 2px solid rgba(6, 182, 212, 0.4);
+    border-radius: 7px;
+    background: rgba(6, 182, 212, 0.04);
+  }
+  .target a, .target .fake-link {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #e8fbff;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 12px;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .target a:hover { color: var(--cyan-soft); text-shadow: 0 0 10px rgba(6, 182, 212, 0.7); }
+  .target .fake-link:hover { box-shadow: none; background: none; border: 0; }
+  .tag {
+    flex: 0 0 auto;
+    font-size: 8px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid rgba(236, 72, 153, 0.4);
+    background: rgba(236, 72, 153, 0.1);
+    color: #fbcfe8;
+  }
+  .tag.expect-pass { border-color: rgba(148, 163, 184, 0.4); background: rgba(148, 163, 184, 0.08); color: #a8bccb; }
+
+  .stats { display: flex; gap: 10px; margin-bottom: 12px; }
+  .stat {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid rgba(6, 182, 212, 0.16);
+    border-radius: 7px;
+    background: rgba(6, 182, 212, 0.05);
+  }
+  .stat span { display: block; font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  .stat strong { font-size: 20px; color: #a5f3fc; text-shadow: 0 0 14px rgba(6, 182, 212, 0.55); }
+  .stat.blocked strong { color: #f9a8d4; text-shadow: 0 0 14px rgba(236, 72, 153, 0.55); }
+
+  #log { display: flex; flex-direction: column; gap: 6px; max-height: 460px; overflow-y: auto; }
+  #log:empty::after {
+    content: "no interactions yet";
+    display: block;
+    padding: 18px;
+    border: 1px dashed rgba(6, 182, 212, 0.2);
+    border-radius: 8px;
+    color: #3f6d84;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 9px;
+    border: 1px solid rgba(6, 182, 212, 0.12);
+    border-radius: 6px;
+    background: rgba(3, 7, 18, 0.5);
+    font-size: 10.5px;
+    animation: row-in 160ms ease-out;
+  }
+  @keyframes row-in { from { opacity: 0; transform: translateY(-3px); } }
+  .row.pass { border-left: 2px solid #475569; }
+  .row.block { border-left: 2px solid var(--cyan); }
+  .row .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #a9c9d8; }
+  .row .what b { color: #eafcff; font-weight: 600; }
+  .verdict {
+    font-size: 8px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid;
+  }
+  .verdict.block { color: #a5f3fc; border-color: rgba(34, 211, 238, 0.5); background: rgba(6, 182, 212, 0.12); }
+  .verdict.pass { color: #cbd5e1; border-color: rgba(148, 163, 184, 0.35); background: rgba(148, 163, 184, 0.08); }
+  .prop {
+    font-size: 8px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #4b7f97;
+    white-space: nowrap;
+  }
+  .prop.stopped { color: #f9a8d4; }
+  .note { margin-top: 12px; color: #47708a; font-size: 10px; line-height: 1.5; }
+  .note b { color: #7dd3fc; font-weight: 600; }
+  .dock { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(6, 182, 212, 0.12); }
+</style>
+</head>
+<body>
+
+<h1>NO<span>//</span>DOWNLOAD · TEST BENCH</h1>
+<p class="sub">
+  Load the interceptor, then click the file links. Blocked links must not navigate or download, and each one must appear in the HUD feed.
+  The log below is written by the page itself: <code>prevented</code> proves <code>preventDefault()</code>, <code>propagation stopped</code> proves <code>stopPropagation()</code>.
+</p>
+
+<div class="bar">
+  <button class="primary" id="btnLoad">Load interceptor</button>
+  <button id="btnReveal">Reveal panel</button>
+  <button class="magenta" id="btnClose">Close panel</button>
+  <button id="btnReset">Reset log</button>
+</div>
+
+<div class="layout">
+  <div class="card">
+    <h2>targets</h2>
+    <div class="targets" id="targets">
+      <div class="target">
+        <span class="tag">.zip</span>
+        <a href="/downloads/alpha-build.zip">alpha-build.zip</a>
+      </div>
+      <div class="target">
+        <span class="tag">.pdf</span>
+        <a href="/files/manual.pdf">manual.pdf</a>
+      </div>
+      <div class="target">
+        <span class="tag">.mp4</span>
+        <a href="/media/clip.mp4">clip.mp4</a>
+      </div>
+      <div class="target">
+        <span class="tag">attr</span>
+        <a href="/get?id=42" download="payload.apk">payload.apk (download attribute, no extension)</a>
+      </div>
+      <div class="target">
+        <span class="tag">nested</span>
+        <a href="/downloads/bundle.tar.gz"><strong>bundle.tar.gz</strong> <em>— click the bold text</em></a>
+      </div>
+      <div class="target">
+        <span class="tag">cross</span>
+        <a href="https://example.com/pkg/installer.exe" target="_blank" rel="noopener">installer.exe (cross-origin)</a>
+      </div>
+      <div class="target">
+        <span class="tag expect-pass">pass</span>
+        <a href="#anchor-test">#anchor-test (ordinary link)</a>
+      </div>
+      <div class="target">
+        <span class="tag expect-pass">pass</span>
+        <a href="/docs/readme.txt">readme.txt (not in the file-type list)</a>
+      </div>
+      <div class="target">
+        <span class="tag expect-pass">pass</span>
+        <a download="x.bin">no href — nothing to intercept</a>
+      </div>
+    </div>
+
+    <div class="dock">
+      <button id="btnDup">Click .zip twice (duplicate)</button>
+      <button id="btnDyn">Add dynamic .rar</button>
+      <button id="btnBlob">Add blob download</button>
+    </div>
+    <p class="note">
+      <b>Readme notes:</b> middle-click a file link to test <code>auxclick</code>. Right-click → “Save link as…” bypasses every page script;
+      no bookmarklet can intercept it.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>page-side event log</h2>
+    <div class="stats">
+      <div class="stat"><span>page clicks</span><strong id="statClicks">0</strong></div>
+      <div class="stat blocked"><span>blocked</span><strong id="statBlocked">0</strong></div>
+      <div class="stat"><span>passed</span><strong id="statPassed">0</strong></div>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const logEl = document.getElementById('log');
+  const clicksEl = document.getElementById('statClicks');
+  const blockedEl = document.getElementById('statBlocked');
+  const passedEl = document.getElementById('statPassed');
+  const rows = new WeakMap();
+  const stats = { clicks: 0, blocked: 0, passed: 0 };
+
+  function describeTarget(target) {
+    if (!target) return '?';
+    const el = target.nodeType === 1 ? target : target.parentElement;
+    if (!el) return '?';
+    const anchor = el.closest && el.closest('a');
+    if (anchor) {
+      const text = (anchor.textContent || '').replace(/\s+/g, ' ').trim();
+      return text.slice(0, 46) || '(empty link)';
+    }
+    if (el === document.body) return 'body';
+    const tag = el.tagName.toLowerCase();
+    const text = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+    return tag + (text ? ' “' + text + '”' : '');
+  }
+
+  function makeRow(event) {
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const what = document.createElement('div');
+    what.className = 'what';
+    const strong = document.createElement('b');
+    strong.textContent = describeTarget(event.target);
+    what.append(strong, document.createTextNode(' · ' + (event.button === 1 ? 'middle' : 'click')));
+
+    const verdict = document.createElement('span');
+    verdict.className = 'verdict';
+    verdict.textContent = '…';
+
+    const prop = document.createElement('span');
+    prop.className = 'prop';
+    prop.textContent = '…';
+
+    row.append(what, verdict, prop);
+    logEl.prepend(row);
+    while (logEl.children.length > 60) logEl.lastElementChild.remove();
+
+    return { row, verdict, prop, reached: false, event };
+  }
+
+  window.addEventListener(
+    'click',
+    (event) => {
+      const rec = makeRow(event);
+      rows.set(event, rec);
+      stats.clicks++;
+      clicksEl.textContent = String(stats.clicks);
+      setTimeout(() => finalize(event, rec), 0);
+    },
+    true
+  );
+
+  // Records whether the event survived the window capture listener (stopPropagation test).
+  document.addEventListener(
+    'click',
+    (event) => {
+      const rec = rows.get(event);
+      if (rec) rec.reached = true;
+    },
+    false
+  );
+
+  function finalize(event, rec) {
+    const prevented = event.defaultPrevented;
+    rec.verdict.textContent = prevented ? 'prevented' : 'passed';
+    rec.verdict.classList.add(prevented ? 'block' : 'pass');
+    rec.prop.textContent = rec.reached ? 'propagation reached page' : 'propagation stopped';
+    rec.prop.classList.toggle('stopped', !rec.reached);
+    rec.row.classList.add(prevented ? 'block' : 'pass');
+
+    if (prevented) {
+      stats.blocked++;
+      blockedEl.textContent = String(stats.blocked);
+    } else {
+      stats.passed++;
+      passedEl.textContent = String(stats.passed);
+    }
+  }
+
+  document.getElementById('btnLoad').addEventListener('click', () => {
+    if (window.__NDI_V1__) {
+      window.__NDI_V1__.reveal();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = './no-download-interceptor.js?v=' + Date.now();
+    script.onerror = () => alert('Could not load no-download-interceptor.js — serve this folder over HTTP or keep the file next to test.html.');
+    document.body.appendChild(script);
+  });
+
+  document.getElementById('btnReveal').addEventListener('click', () => {
+    if (window.__NDI_V1__) window.__NDI_V1__.reveal();
+  });
+
+  document.getElementById('btnClose').addEventListener('click', () => {
+    if (window.__NDI_V1__) window.__NDI_V1__.destroy();
+  });
+
+  document.getElementById('btnReset').addEventListener('click', () => {
+    logEl.textContent = '';
+    stats.clicks = stats.blocked = stats.passed = 0;
+    clicksEl.textContent = blockedEl.textContent = passedEl.textContent = '0';
+  });
+
+  document.getElementById('btnDup').addEventListener('click', () => {
+    const link = document.querySelector('a[href="/downloads/alpha-build.zip"]');
+    if (!link) return;
+    link.click();
+    setTimeout(() => link.click(), 120);
+  });
+
+  let dynSeq = 0;
+  document.getElementById('btnDyn').addEventListener('click', () => {
+    dynSeq++;
+    const anchor = document.createElement('a');
+    anchor.href = '/dynamic/archive-' + dynSeq + '.rar';
+    anchor.textContent = 'archive-' + dynSeq + '.rar (dynamic)';
+    const wrap = document.createElement('div');
+    wrap.className = 'target';
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = '.rar';
+    wrap.append(tag, anchor);
+    document.getElementById('targets').appendChild(wrap);
+  });
+
+  document.getElementById('btnBlob').addEventListener('click', () => {
+    const blob = new Blob(['blob payload for the test bench'], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'blob-note.txt';
+    anchor.textContent = 'blob-note.txt (blob + download attribute)';
+    const wrap = document.createElement('div');
+    wrap.className = 'target';
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = 'blob';
+    wrap.append(tag, anchor);
+    document.getElementById('targets').appendChild(wrap);
+  });
+})();
+</script>
+</body>
+</html>
