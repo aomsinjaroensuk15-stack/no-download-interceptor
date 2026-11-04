@@ -18,7 +18,7 @@ The panel is rendered inside a shadow root, so the host page's CSS cannot restyl
 |---|---|
 | `no-download-interceptor.js` | The entire bookmarklet payload. This is the file the loader fetches. |
 | `bookmarklet.txt` | Generated artifact (not committed): the same payload as a one-line percent-encoded `javascript:` bookmark, for when you cannot host the file. |
-| `test.html` | Local bench with file links, non-file links, duplicate/dynamic/blob cases and a page-side event log. |
+| `test.html` | Local bench with file links, non-file links, duplicate/dynamic/blob cases and a page-side event log [open it now](https://singular-crumble-e65a35.netlify.app). |
 | `README.md` | This file. |
 
 ## Install
