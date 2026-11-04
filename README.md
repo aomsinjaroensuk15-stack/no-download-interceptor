@@ -77,7 +77,7 @@ node -e "const fs=require('fs');const s=fs.readFileSync('no-download-interceptor
 | **Copy all** | Newline-separated URLs, newest first. |
 | **Clear** | Empties the feed and resets the counter. |
 | **− / +** | Collapse and expand the panel. |
-| **×** | Removes the panel, its listeners and `window.__NDI_V1__`. Running the bookmarklet afterwards creates a fresh instance. |
+| **×** | Removes the panel, its listeners and `window.__NDI_V2__`. Running the bookmarklet afterwards creates a fresh instance. |
 | **Header drag** | Moves the panel. |
 
 Feed entries are capped at 300; the oldest is dropped first. Duplicate clicks bump the hit count and move the entry back to the top instead of adding a second row. If you have scrolled down the feed, new items will not yank the list back to the top.
@@ -165,7 +165,7 @@ Measured in Chromium on the local bench:
 - Standby mode let the same click through and recorded nothing; the label flipped to `standby` and the panel border to magenta.
 - **Copy Link** reported `copied` (clipboard API on `127.0.0.1`).
 - Clicking HUD buttons never appeared in the feed and was not counted.
-- **×** removed the host, the listeners and `window.__NDI_V1__`; re-running the script mounted exactly **one** panel with a fresh feed.
+- **×** removed the host, the listeners and `window.__NDI_V2__`; re-running the script mounted exactly **one** panel with a fresh feed.
 - Collapse/expand and drag round-tripped without losing feed entries.
 - Computed styles confirmed `backdrop-filter: blur(22px) saturate(1.65)`, a `rgba(6, 182, 212, 0.34)` border, `z-index: 2147483647` and the 392 px panel width.
 - **v2 allowlist:** allowing `127.0.0.1` from a feed entry let that host's file links through untouched while a `localhost:8123` file link was still captured; the host pill appeared above the feed; removing the pill restored interception.
