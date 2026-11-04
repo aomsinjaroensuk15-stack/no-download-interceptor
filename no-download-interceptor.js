@@ -1,5 +1,5 @@
 /*!
- * No-Download Interceptor v1.0.0
+ * No-Download Interceptor v2.0.0
  * Single-file bookmarklet payload. No dependencies, no build step.
  * Blocks file-download links in the capture phase and shows a cyberpunk
  * glass HUD with a live capture feed.
@@ -7,10 +7,11 @@
 (() => {
   'use strict';
 
-  const NS = '__NDI_V1__';
-  const VERSION = '1.0.0';
-  const HOST_ID = 'ndi-v1-host';
+  const NS = '__NDI_V2__';
+  const VERSION = '2.0.0';
+  const HOST_ID = 'ndi-v2-host';
   const MAX_ITEMS = 300;
+  const ALLOW_KEY = 'ndi:v2:allowed-hosts';
 
   const existing = window[NS];
   if (existing && typeof existing.reveal === 'function') {
@@ -19,6 +20,13 @@
   }
   if (existing) return;
   window[NS] = { loading: true };
+
+  // v1 left an older panel behind; retire it so only one HUD is on screen.
+  try {
+    if (window.__NDI_V1__ && typeof window.__NDI_V1__.destroy === 'function') window.__NDI_V1__.destroy();
+  } catch {}
+  const legacyHost = document.getElementById('ndi-v1-host');
+  if (legacyHost) legacyHost.remove();
 
   const FILE_EXT = new Set(
     (
@@ -247,6 +255,78 @@
       transform: translateX(0);
       background: #f9a8d4;
       box-shadow: 0 0 10px #ec4899, 0 0 20px rgba(236, 72, 153, 0.65);
+    }
+
+    .ndi-allowbar {
+      flex: 0 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      max-height: 58px;
+      overflow-y: auto;
+      padding: 8px 14px 4px;
+      border-bottom: 1px solid rgba(6, 182, 212, 0.08);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(236, 72, 153, 0.45) transparent;
+    }
+    .ndi-allow-label {
+      margin-right: 3px;
+      color: #4b7f97;
+      font-size: 8px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .ndi-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 190px;
+      height: 18px;
+      padding: 0 6px;
+      border: 1px solid rgba(236, 72, 153, 0.35);
+      border-radius: 99px;
+      background: rgba(236, 72, 153, 0.09);
+      color: #fbcfe8;
+      font-size: 8.5px;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 140ms, border-color 140ms, box-shadow 140ms;
+    }
+    .ndi-pill-host {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ndi-pill b {
+      flex: 0 0 auto;
+      color: #ec4899;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .ndi-pill:hover {
+      border-color: rgba(244, 114, 182, 0.8);
+      background: rgba(236, 72, 153, 0.2);
+      box-shadow: 0 0 10px rgba(236, 72, 153, 0.35);
+    }
+    .ndi-act-allow {
+      color: #f9a8d4;
+      border-color: rgba(236, 72, 153, 0.32);
+      background: rgba(236, 72, 153, 0.07);
+    }
+    .ndi-act-allow:hover {
+      border-color: rgba(244, 114, 182, 0.8);
+      background: rgba(236, 72, 153, 0.18);
+      box-shadow: 0 0 12px rgba(236, 72, 153, 0.4);
+    }
+    .ndi-act-allow.is-on {
+      border-color: #f9a8d4;
+      background: #f9a8d4;
+      color: #04121a;
+      box-shadow: 0 0 14px rgba(236, 72, 153, 0.5);
     }
 
     .ndi-feedhead {
@@ -519,6 +599,7 @@
     seq: 0,
     items: [],
     byKey: new Map(),
+    allowed: new Set(),
     lastFlash: 0
   };
 
@@ -532,6 +613,7 @@
   let stateLabel = null;
   let toggleBtn = null;
   let feedMeta = null;
+  let allowBar = null;
   let feed = null;
   let empty = null;
   let footStatus = null;
@@ -589,6 +671,34 @@
     } catch {
       return { host: '', rest: String(raw).slice(0, 90) };
     }
+  }
+
+  function hostOf(rawUrl) {
+    try {
+      const url = new URL(rawUrl, document.baseURI);
+      if (url.protocol === 'blob:' || url.protocol === 'data:') return '';
+      return (url.host || '').toLowerCase();
+    } catch {
+      return '';
+    }
+  }
+
+  function loadAllowlist() {
+    try {
+      const raw = localStorage.getItem(ALLOW_KEY);
+      if (!raw) return;
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list)) return;
+      list.forEach((host) => {
+        if (typeof host === 'string' && host) state.allowed.add(host.toLowerCase());
+      });
+    } catch {}
+  }
+
+  function saveAllowlist() {
+    try {
+      localStorage.setItem(ALLOW_KEY, JSON.stringify([...state.allowed]));
+    } catch {}
   }
 
   // ---------------------------------------------------------------------------
@@ -677,6 +787,12 @@
     const hit = matchDownload(anchor);
     if (!hit) return;
 
+    const hitHost = hostOf(hit.url);
+    if (hitHost && state.allowed.has(hitHost)) {
+      say('allowed host · ' + hitHost, 1400);
+      return;
+    }
+
     e.preventDefault();
     if (e.stopPropagation) e.stopPropagation();
     record(hit);
@@ -713,7 +829,11 @@
     direct.type = 'button';
     direct.dataset.act = 'direct';
     direct.dataset.id = String(item.id);
-    actions.append(h('span', 'ndi-time'), copy, direct);
+    const allow = h('button', 'ndi-act ndi-act-allow', 'allow');
+    allow.type = 'button';
+    allow.dataset.act = 'allow';
+    allow.dataset.id = String(item.id);
+    actions.append(h('span', 'ndi-time'), copy, direct, allow);
 
     el.append(top, urlRow, actions);
     fillNode(el, item);
@@ -773,6 +893,7 @@
         name: hit.name,
         ext: hit.ext,
         reason: hit.reason,
+        host: hostOf(hit.url),
         hits: 1,
         at: now,
         node: null
@@ -900,10 +1021,44 @@
     }, ms || 2200);
   }
 
+  function refreshAllowUi() {
+    if (!allowBar) return;
+
+    allowBar.textContent = '';
+    allowBar.hidden = state.allowed.size === 0;
+    if (state.allowed.size) {
+      allowBar.append(h('span', 'ndi-allow-label', 'allowed'));
+      state.allowed.forEach((host) => {
+        const pill = h('button', 'ndi-pill');
+        pill.type = 'button';
+        pill.dataset.host = host;
+        pill.title = 'Stop allowing ' + host;
+        pill.append(h('span', 'ndi-pill-host', host), h('b', null, '×'));
+        allowBar.append(pill);
+      });
+    }
+
+    state.items.forEach((item) => {
+      if (!item.node) return;
+      const btn = item.node.querySelector('button[data-act="allow"]');
+      if (!btn) return;
+      if (!item.host) {
+        btn.hidden = true;
+        return;
+      }
+      const on = state.allowed.has(item.host);
+      btn.hidden = false;
+      btn.textContent = on ? 'allowed' : 'allow';
+      btn.classList.toggle('is-on', on);
+      btn.title = on ? 'Stop allowing ' + item.host : 'Allow downloads from ' + item.host;
+    });
+  }
+
   function sync() {
     if (!countEl) return;
     countEl.textContent = String(state.total);
     feedMeta.textContent = state.byKey.size + ' unique';
+    refreshAllowUi();
     empty.hidden = state.byKey.size > 0;
     const noItems = state.byKey.size === 0;
     copyAllBtn.disabled = noItems;
@@ -925,6 +1080,22 @@
     state.active = !!next;
     sync();
     say(state.active ? 'interception resumed' : 'paused — downloads allowed', 1600);
+  }
+
+  function toggleAllow(host) {
+    if (!host) {
+      say('no host to allow', 1600);
+      return;
+    }
+    if (state.allowed.has(host)) {
+      state.allowed.delete(host);
+      say('intercepting · ' + host, 1800);
+    } else {
+      state.allowed.add(host);
+      say('allowed · ' + host, 1800);
+    }
+    saveAllowlist();
+    sync();
   }
 
   function clearFeed() {
@@ -1008,7 +1179,7 @@
     if (sayTimer) clearTimeout(sayTimer);
     if (flashTimer) clearTimeout(flashTimer);
     if (host) host.remove();
-    host = shadow = panel = feed = empty = countEl = footStatus = null;
+    host = shadow = panel = feed = empty = countEl = footStatus = allowBar = null;
     try {
       delete window[NS];
     } catch {
@@ -1081,6 +1252,9 @@
 
     stats.append(countWrap, switchWrap);
 
+    allowBar = h('div', 'ndi-allowbar');
+    allowBar.hidden = true;
+
     const feedHead = h('div', 'ndi-feedhead');
     feedMeta = h('span', 'ndi-fh-meta', '0 unique');
     feedHead.append(h('span', 'ndi-fh-title', 'capture feed'), feedMeta);
@@ -1100,7 +1274,7 @@
     footStatus = h('span', 'ndi-footstatus', 'listening');
     foot.append(copyAllBtn, clearBtn, footStatus);
 
-    body.append(stats, feedHead, feed, foot);
+    body.append(stats, allowBar, feedHead, feed, foot);
     panel.append(head, body);
     shadow.append(panel);
     (document.body || document.documentElement).appendChild(host);
@@ -1150,6 +1324,8 @@
           triggerDownload(item);
           flashButton(btn, 'sent', true);
           say('download triggered', 1600);
+        } else if (btn.dataset.act === 'allow') {
+          toggleAllow(item.host);
         }
       },
       opts
@@ -1157,6 +1333,18 @@
 
     copyAllBtn.addEventListener('click', copyAllLinks, opts);
     clearBtn.addEventListener('click', clearFeed, opts);
+
+    allowBar.addEventListener(
+      'click',
+      (e) => {
+        const pill = e.target && e.target.closest ? e.target.closest('button.ndi-pill') : null;
+        if (!pill) return;
+        e.preventDefault();
+        e.stopPropagation();
+        toggleAllow(pill.dataset.host);
+      },
+      opts
+    );
 
     // keep page handlers from reacting to HUD interaction
     ['click', 'pointerdown', 'mousedown', 'mouseup', 'pointerup', 'wheel'].forEach((type) => {
@@ -1167,6 +1355,7 @@
   }
 
   try {
+    loadAllowlist();
     mount();
     window.addEventListener('click', handleClick, { capture: true, signal: abort.signal });
     window.addEventListener('auxclick', handleAux, { capture: true, signal: abort.signal });
@@ -1176,7 +1365,7 @@
       reveal,
       destroy,
       getState() {
-        return { total: state.total, unique: state.byKey.size, active: state.active };
+        return { total: state.total, unique: state.byKey.size, active: state.active, allowed: state.allowed.size };
       }
     };
   } catch (err) {

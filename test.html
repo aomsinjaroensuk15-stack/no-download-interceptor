@@ -241,6 +241,10 @@
         <a href="https://example.com/pkg/installer.exe" target="_blank" rel="noopener">installer.exe (cross-origin)</a>
       </div>
       <div class="target">
+        <span class="tag">host 2</span>
+        <a href="http://localhost:8123/downloads/localhost.zip">localhost.zip (second host, same bench)</a>
+      </div>
+      <div class="target">
         <span class="tag expect-pass">pass</span>
         <a href="#anchor-test">#anchor-test (ordinary link)</a>
       </div>
@@ -259,6 +263,10 @@
       <button id="btnDyn">Add dynamic .rar</button>
       <button id="btnBlob">Add blob download</button>
     </div>
+    <p class="note">
+      <b>Allowlist:</b> press <code>allow</code> on any feed entry, then click a file link from that host again — it should open natively and
+      stop appearing in the feed. Remove the host from the pills above the feed to intercept it again.
+    </p>
     <p class="note">
       <b>Readme notes:</b> middle-click a file link to test <code>auxclick</code>. Right-click → “Save link as…” bypasses every page script;
       no bookmarklet can intercept it.
