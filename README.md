@@ -24,24 +24,24 @@ The panel is rendered inside a shadow root, so the host page's CSS cannot restyl
 
 ## Install
 
-The loader expects a **public** GitHub repo named `no-download-interceptor` under `aomsinjaroensuk15-stack`, with the script on `main`:
+The loader expects a **public** GitHub repo named `no-download-interceptor` under `aomsinjaroensuk15-stack`, served through jsDelivr from `main`:
 
 ```
-https://raw.githack.com/aomsinjaroensuk15-stack/no-download-interceptor/main/no-download-interceptor.js
+https://cdn.jsdelivr.net/gh/aomsinjaroensuk15-stack/no-download-interceptor@main/no-download-interceptor.js
 ```
 
-raw.githack cannot read private repositories. If your account, repo name or branch differ, change the URL inside the loader.
+The repo must be public. If your account, repo name or branch differ, change the URL inside the loader.
 
 ### 1. Push the files
 
-Push `no-download-interceptor.js` to that repo. The loader appends `?v=<timestamp>` so githack does not serve a cached copy after an update.
+Push `no-download-interceptor.js` to that repo. The loader appends `?v=<timestamp>` to the request. jsDelivr may still serve `@main` from its cache for a while after a push, so when you need an immediate update, point the bookmark at a commit hash or tag instead of `@main`.
 
 ### 2. Add the bookmark
 
 Create a bookmark and paste this as its URL:
 
 ```js
-javascript:(()=>{const s=document.createElement('script');s.src='https://raw.githack.com/aomsinjaroensuk15-stack/no-download-interceptor/main/no-download-interceptor.js?v='+Date.now();s.onerror=()=>alert('No-Download Interceptor failed to load. Check that the GitHub repo is public and that this page allows scripts.');document.documentElement.appendChild(s)})()
+javascript:(()=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/gh/aomsinjaroensuk15-stack/no-download-interceptor@main/no-download-interceptor.js?v='+Date.now();s.onerror=()=>alert('No-Download Interceptor failed to load. Check that the GitHub repo is public and that this page allows scripts.');document.documentElement.appendChild(s)})()
 ```
 
 ### 3. Or paste the payload directly
@@ -176,7 +176,7 @@ Measured in Chromium on the local bench:
 
 ## Privacy
 
-The payload makes no network requests of its own. The loader variant fetches one script from raw.githack; the `bookmarklet.txt` variant fetches nothing. Captured URLs never leave the page — they live in that tab's memory until you close the panel or reload.
+The payload makes no network requests of its own. The loader variant fetches one script from jsDelivr; the `bookmarklet.txt` variant fetches nothing. Captured URLs never leave the page — they live in that tab's memory until you close the panel or reload.
 
 ## Console API
 
